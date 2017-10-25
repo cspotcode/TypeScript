@@ -22887,6 +22887,7 @@ namespace ts {
                 case SyntaxKind.JSDocAllType:
                 case SyntaxKind.JSDocUnknownType:
                     checkJSDocTypeIsInJsFile(node);
+                    forEachChild(node, checkSourceElement);
                     return;
                 case SyntaxKind.JSDocVariadicType:
                     checkJSDocVariadicType(node as JSDocVariadicType);
@@ -22974,6 +22975,7 @@ namespace ts {
 
         function checkJSDocVariadicType(node: JSDocVariadicType): void {
             checkJSDocTypeIsInJsFile(node);
+            checkSourceElement(node.type);
 
             // Only legal location is in the *last* parameter tag.
             const { parent } = node;
