@@ -6510,14 +6510,21 @@ namespace ts {
                 const typePredicate = declaration.type && declaration.type.kind === SyntaxKind.TypePredicate ?
                     createTypePredicateFromTypePredicateNode(declaration.type as TypePredicateNode) :
                     undefined;
-                // JS functions get a free rest parameter if they reference `arguments`
+                // JS functions get a free rest parameter if:
+                // a) The last parameter has `...` preceding its typ
+                // b) It references `arguments` somewhere
                 let hasRestLikeParameter = hasRestParameter(declaration);
-                if (!hasRestLikeParameter && isInJavaScriptFile(declaration) && containsArgumentsReference(declaration)) {
-                    hasRestLikeParameter = true;
-                    const syntheticArgsSymbol = createSymbol(SymbolFlags.Variable, "args" as __String);
-                    syntheticArgsSymbol.type = anyArrayType;
-                    syntheticArgsSymbol.isRestParameter = true;
-                    parameters.push(syntheticArgsSymbol);
+                if (!hasRestLikeParameter && isInJavaScriptFile(declaration)) {
+                    const lastParam = lastOrUndefined(declaration.parameters);
+                    const lastParamIsDocumentedAsRest = !!lastParam && some(getJSDocParameterTags(lastParam), p =>
+                        p.typeExpression && p.typeExpression.type.kind === SyntaxKind.JSDocVariadicType);
+                    if (lastParamIsDocumentedAsRest || containsArgumentsReference(declaration)) {
+                        hasRestLikeParameter = true;
+                        const syntheticArgsSymbol = createSymbol(SymbolFlags.Variable, "args" as __String);
+                        syntheticArgsSymbol.type = lastParam ? getTypeOfParameter(lastParam.symbol) : anyArrayType;
+                        syntheticArgsSymbol.isRestParameter = true;
+                        parameters.push(syntheticArgsSymbol);
+                    }
                 }
 
                 links.resolvedSignature = createSignature(declaration, typeParameters, thisParameter, parameters, returnType, typePredicate, minArgumentCount, hasRestLikeParameter, hasLiteralTypes);
@@ -8051,15 +8058,6 @@ namespace ts {
             return links.resolvedType;
         }
 
-        function getTypeFromJSDocVariadicType(node: JSDocVariadicType): Type {
-            const links = getNodeLinks(node);
-            if (!links.resolvedType) {
-                const type = getTypeFromTypeNode(node.type);
-                links.resolvedType = type ? createArrayType(type) : unknownType;
-            }
-            return links.resolvedType;
-        }
-
         function getThisType(node: Node): Type {
             const container = getThisContainer(node, /*includeArrowFunctions*/ false);
             const parent = container && container.parent;
@@ -8132,6 +8130,7 @@ namespace ts {
                 case SyntaxKind.JSDocNonNullableType:
                 case SyntaxKind.JSDocOptionalType:
                 case SyntaxKind.JSDocTypeExpression:
+                case SyntaxKind.JSDocVariadicType: // We don't do anything with this here, but we will create a rest param
                     return getTypeFromTypeNode((<ParenthesizedTypeNode | JSDocTypeReferencingNode | JSDocTypeExpression>node).type);
                 case SyntaxKind.FunctionType:
                 case SyntaxKind.ConstructorType:
@@ -8151,8 +8150,6 @@ namespace ts {
                 case SyntaxKind.QualifiedName:
                     const symbol = getSymbolAtLocation(node);
                     return symbol && getDeclaredTypeOfSymbol(symbol);
-                case SyntaxKind.JSDocVariadicType:
-                    return getTypeFromJSDocVariadicType(<JSDocVariadicType>node);
                 default:
                     return unknownType;
             }
