@@ -632,7 +632,7 @@ namespace ts.formatting {
                     processChildNode(child, /*inheritedIndentation*/ Constants.Unknown, node, nodeDynamicIndentation, nodeStartLine, undecoratedNodeStartLine, /*isListItem*/ false);
                 },
                 nodes => {
-                    processChildNodes(nodes, node, nodeStartLine, nodeDynamicIndentation);
+                    processChildNodes(nodes, node, nodeStartLine, undecoratedNodeStartLine, nodeDynamicIndentation);
                 });
 
             // proceed any tokens in the node that are located after child nodes
@@ -726,6 +726,7 @@ namespace ts.formatting {
             function processChildNodes(nodes: NodeArray<Node>,
                 parent: Node,
                 parentStartLine: number,
+                undecoratedParentStartLine: number,
                 parentDynamicIndentation: DynamicIndentation): void {
                 Debug.assert(isNodeArray(nodes));
 
@@ -762,7 +763,7 @@ namespace ts.formatting {
                 let inheritedIndentation = Constants.Unknown;
                 for (let i = 0; i < nodes.length; i++) {
                     const child = nodes[i];
-                    inheritedIndentation = processChildNode(child, inheritedIndentation, node, listDynamicIndentation, startLine, startLine, /*isListItem*/ true, /*isFirstListItem*/ i === 0);
+                    inheritedIndentation = processChildNode(child, inheritedIndentation, node, listDynamicIndentation, startLine, undecoratedParentStartLine, /*isListItem*/ true, /*isFirstListItem*/ i === 0);
                 }
 
                 if (listEndToken !== SyntaxKind.Unknown) {
